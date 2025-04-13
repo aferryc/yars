@@ -1,0 +1,156 @@
+services:
+  app-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SERVER_ADDRESS=:8080
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-yars}?sslmode=disable
+      - BANK_API_BASE_URL=${BANK_API_BASE_URL:-https://api.bank.com}
+      - BUCKET_NAME=yars-bucket
+      - BUCKET_URL=http://bucket:4443
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_GROUP_ID=yars-server-group
+      - KAFKA_CLIENT_ID=yars-server
+      - KAFKA_COMPILER_TOPIC=compiler-events
+      - KAFKA_RECON_TOPIC=reconciliation-events
+      - STORAGE_EMULATOR_HOST=http://bucket:4443
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/dummy-credentials.json
+    volumes:
+      - ./dummy-credentials.json:/app/dummy-credentials.json
+    depends_on:
+      - kafka
+      - postgres
+      - bucket
+    networks:
+      - yars-network
+
+  app-consumer-compiler:
+    build:
+      context: .
+      dockerfile: Dockerfile.compiler
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-yars}?sslmode=disable
+      - BANK_API_BASE_URL=${BANK_API_BASE_URL:-https://api.bank.com}
+      - BUCKET_NAME=yars-bucket
+      - BUCKET_URL=http://bucket:4443
+      - COMPILER_BATCH_SIZE=100
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_GROUP_ID=yars-compiler-group
+      - KAFKA_CLIENT_ID=yars-compiler
+      - KAFKA_COMPILER_TOPIC=compiler-events
+      - KAFKA_RECON_TOPIC=reconciliation-events
+      - STORAGE_EMULATOR_HOST=http://bucket:4443
+    depends_on:
+      - kafka
+      - postgres
+      - bucket
+    networks:
+      - yars-network
+
+  app-consumer-reconciliation:
+    build:
+      context: .
+      dockerfile: Dockerfile.reconciliation
+    environment:
+      - PORT=8082
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-yars}?sslmode=disable
+      - BANK_API_BASE_URL=${BANK_API_BASE_URL:-https://api.bank.com}
+      - BUCKET_NAME=yars-bucket
+      - BUCKET_URL=http://bucket:4443
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_GROUP_ID=yars-recon-group
+      - KAFKA_CLIENT_ID=yars-recon
+      - KAFKA_COMPILER_TOPIC=compiler-events
+      - KAFKA_RECON_TOPIC=reconciliation-events
+      - STORAGE_EMULATOR_HOST=http://bucket:4443
+    depends_on:
+      - kafka
+      - postgres
+      - bucket
+    networks:
+      - yars-network
+
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-yars}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/db:/docker-entrypoint-initdb.d
+    networks:
+      - yars-network
+
+  bucket:
+    image: fsouza/fake-gcs-server
+    ports:
+      - "4443:4443"
+    volumes:
+      - ./bucket:/data
+    command:
+      [
+        "-port=4443",
+        "-scheme=http",
+        "-public-host=localhost:4443",
+        "-external-url=http://localhost:4443",
+      ]
+    networks:
+      - yars-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 2181:2181
+    networks:
+      - yars-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - 9092:9092
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - yars-network
+
+  init-kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        cub kafka-ready -b kafka:9092 1 30 &&
+        echo 'Creating topics...' &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1 --topic compiler-events &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1 --topic reconciliation-events"
+    networks:
+      - yars-network
+
+networks:
+  yars-network:
+    driver: bridge
+
+volumes:
+  db_data:

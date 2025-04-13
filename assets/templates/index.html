@@ -1,0 +1,382 @@
+/templates/index.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ .title }}</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link href="/static/css/styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="container my-4">
+      <!-- Navigation Tabs -->
+      <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="upload-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#upload-tab-pane"
+            type="button"
+            role="tab"
+            aria-controls="upload-tab-pane"
+            aria-selected="true"
+          >
+            Upload Files
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="summaries-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#summaries-tab-pane"
+            type="button"
+            role="tab"
+            aria-controls="summaries-tab-pane"
+            aria-selected="false"
+          >
+            Reconciliation Results
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="mainTabsContent">
+        <!-- Upload Tab -->
+        <div
+          class="tab-pane fade show active"
+          id="upload-tab-pane"
+          role="tabpanel"
+          aria-labelledby="upload-tab"
+          tabindex="0"
+        >
+          <div class="row justify-content-center">
+            <div class="col-md-10">
+              <div class="card">
+                <div class="card-header bg-primary text-white">
+                  <h3 class="mb-0">Reconciliation File Upload</h3>
+                </div>
+                <div class="card-body">
+                  <form id="reconciliationForm">
+                    <div class="mb-3">
+                      <label for="transactionFile" class="form-label"
+                        >Transaction File (CSV)</label
+                      >
+                      <div class="input-group">
+                        <input
+                          type="file"
+                          class="form-control"
+                          id="transactionFile"
+                          accept=".csv"
+                        />
+                        <button
+                          class="btn btn-outline-secondary"
+                          type="button"
+                          id="uploadTransactionBtn"
+                        >
+                          Upload
+                        </button>
+                      </div>
+                      <div
+                        class="progress mt-2 d-none"
+                        id="transactionProgress"
+                      >
+                        <div
+                          class="progress-bar"
+                          role="progressbar"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+                      <small
+                        class="form-text text-success d-none"
+                        id="transactionSuccess"
+                        >File uploaded successfully!</small
+                      >
+                      <small
+                        class="form-text text-danger d-none"
+                        id="transactionError"
+                      ></small>
+                    </div>
+
+                    <div class="mb-3">
+                      <label for="bankName" class="form-label">Bank Name</label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="bankName"
+                        required
+                      />
+                    </div>
+
+                    <div class="mb-3">
+                      <label for="bankStatementFile" class="form-label"
+                        >Bank Statement File (CSV)</label
+                      >
+                      <div class="input-group">
+                        <input
+                          type="file"
+                          class="form-control"
+                          id="bankStatementFile"
+                          accept=".csv"
+                        />
+                        <button
+                          class="btn btn-outline-secondary"
+                          type="button"
+                          id="uploadBankStatementBtn"
+                        >
+                          Upload
+                        </button>
+                      </div>
+                      <div
+                        class="progress mt-2 d-none"
+                        id="bankStatementProgress"
+                      >
+                        <div
+                          class="progress-bar"
+                          role="progressbar"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+                      <small
+                        class="form-text text-success d-none"
+                        id="bankStatementSuccess"
+                        >File uploaded successfully!</small
+                      >
+                      <small
+                        class="form-text text-danger d-none"
+                        id="bankStatementError"
+                      ></small>
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <label for="startDate" class="form-label"
+                          >Start Date</label
+                        >
+                        <input
+                          type="date"
+                          class="form-control"
+                          id="startDate"
+                        />
+                      </div>
+
+                      <div class="col-md-6 mb-3">
+                        <label for="endDate" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="endDate" />
+                      </div>
+                    </div>
+
+                    <div class="d-grid">
+                      <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="submitBtn"
+                        disabled
+                      >
+                        Start Compilation
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summaries Tab -->
+        <div
+          class="tab-pane fade"
+          id="summaries-tab-pane"
+          role="tabpanel"
+          aria-labelledby="summaries-tab"
+          tabindex="0"
+        >
+          <div class="card">
+            <div
+              class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+            >
+              <h3 class="mb-0">Reconciliation Results</h3>
+              <button id="refreshSummaries" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+              </button>
+            </div>
+            <div class="card-body">
+              <div id="summariesLoading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading reconciliation summaries...</p>
+              </div>
+
+              <div id="summariesTable" class="table-responsive d-none">
+                <table class="table table-striped table-hover">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>Task ID</th>
+                      <th>Period</th>
+                      <th>Matched</th>
+                      <th>Discrepancy</th>
+                      <th>Unmatched Internal</th>
+                      <th>Unmatched Bank</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="summariesTableBody">
+                    <!-- Summaries will be inserted here -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div id="noSummaries" class="alert alert-info d-none">
+                No reconciliation summaries found. Upload files to start a
+                reconciliation.
+              </div>
+
+              <!-- Pagination for Summaries -->
+              <nav id="summariesPagination" class="d-none">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    Showing <span id="summariesCurrentRange">0-0</span> of
+                    <span id="summariesTotalCount">0</span> summaries
+                  </div>
+                  <ul class="pagination justify-content-end">
+                    <li class="page-item disabled">
+                      <a
+                        class="page-link"
+                        href="#"
+                        id="summariesPrevBtn"
+                        tabindex="-1"
+                        >Previous</a
+                      >
+                    </li>
+                    <li class="page-item">
+                      <a class="page-link" href="#" id="summariesNextBtn"
+                        >Next</a
+                      >
+                    </li>
+                  </ul>
+                </div>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div
+      class="modal fade"
+      id="notificationModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">Notification</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body" id="modalBody"></div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unmatched Transactions/Bank Statements Modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="detailsModalTitle">Unmatched Items</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div id="detailsLoading" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading details...</p>
+            </div>
+
+            <div id="detailsTable" class="table-responsive d-none">
+              <table class="table table-striped table-hover">
+                <thead class="table-dark" id="detailsTableHead">
+                  <!-- Table headers will be inserted here -->
+                </thead>
+                <tbody id="detailsTableBody">
+                  <!-- Details will be inserted here -->
+                </tbody>
+              </table>
+            </div>
+
+            <div id="noDetails" class="alert alert-info d-none">
+              No unmatched items found.
+            </div>
+
+            <!-- Pagination for Details -->
+            <nav id="detailsPagination" class="d-none">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  Showing <span id="detailsCurrentRange">0-0</span> of
+                  <span id="detailsTotalCount">0</span> items
+                </div>
+                <ul class="pagination justify-content-end">
+                  <li class="page-item disabled">
+                    <a
+                      class="page-link"
+                      href="#"
+                      id="detailsPrevBtn"
+                      tabindex="-1"
+                      >Previous</a
+                    >
+                  </li>
+                  <li class="page-item">
+                    <a class="page-link" href="#" id="detailsNextBtn">Next</a>
+                  </li>
+                </ul>
+              </div>
+            </nav>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/upload.js"></script>
+  </body>
+</html>
